@@ -1,0 +1,85 @@
+import commands from '@callstack/repack/commands/rspack';
+import { colorLink, findDevServerPort, intro, logger, RockError, runHermes, spinner, } from '@rock-js/tools';
+const startCommand = commands.find((command) => command.name === 'start');
+const bundleCommand = commands.find((command) => command.name === 'bundle');
+export async function startDevServer({ root, args, reactNativeVersion: _reactNativeVersion, reactNativePath, platforms, }, pluginConfig = {}) {
+    const { port, startDevServer } = await findDevServerPort(args.port ? Number(args.port) : 8081, root);
+    if (!startDevServer) {
+        return;
+    }
+    if (!startCommand) {
+        throw new RockError('Re.Pack "start" command not found.');
+    }
+    logger.info('Starting Re.Pack dev server...');
+    startCommand.func([], 
+    // @ts-expect-error TODO fix getPlatforms type
+    { reactNativePath, root, platforms, ...pluginConfig }, { ...args, port });
+}
+export const pluginRepack = (pluginConfig = {}) => (api) => {
+    if (!startCommand) {
+        throw new RockError('Re.Pack "start" command not found.');
+    }
+    if (!bundleCommand) {
+        throw new RockError('Re.Pack "bundle" command not found.');
+    }
+    api.registerCommand({
+        name: 'start',
+        description: 'Starts Re.Pack dev server.',
+        action: async (args) => {
+            startDevServer({
+                root: api.getProjectRoot(),
+                reactNativeVersion: api.getReactNativeVersion(),
+                reactNativePath: api.getReactNativePath(),
+                platforms: api.getPlatforms(),
+                // @ts-expect-error Re.Pack doesn't have clientLogs
+                args,
+            });
+        },
+        // @ts-expect-error fixup types
+        options: startCommand.options,
+    });
+    api.registerCommand({
+        name: 'bundle',
+        description: 'Bundles JavaScript with Re.Pack.',
+        action: async (args) => {
+            if (!args.entryFile) {
+                throw new RockError('"rock bundle" command is missing "--entry-file" argument.');
+            }
+            intro('Compiling JS bundle with Re.Pack');
+            const root = api.getProjectRoot();
+            const platforms = api.getPlatforms();
+            await bundleCommand.func([], 
+            // @ts-expect-error TODO fix getPlatforms type
+            { root, platforms, ...pluginConfig }, args);
+            if (args.hermes) {
+                if (!args.bundleOutput) {
+                    throw new RockError('Missing "--bundle-output" argument to run "bundle --hermes".');
+                }
+                const loader = spinner();
+                loader.start('Running Hermes compiler...');
+                await runHermes({
+                    bundleOutputPath: args.bundleOutput,
+                    sourcemapOutputPath: args.sourcemapOutput,
+                });
+                loader.stop(`Hermes bytecode bundle created at: ${colorLink(args.bundleOutput)}`);
+            }
+            else if (args.bundleOutput) {
+                logger.info(`JavaScript bundle created at: ${colorLink(args.bundleOutput)}`);
+            }
+        },
+        options: [
+            ...bundleCommand.options,
+            {
+                name: '--hermes',
+                description: 'Passes the output JS bundle to Hermes compiler and outputs a bytecode file.',
+            },
+        ],
+    });
+    return {
+        name: '@rock-js/plugin-repack',
+        description: 'Rock plugin for Re.Pack toolkit with Rspack.',
+        start: startDevServer,
+    };
+};
+export default pluginRepack;
+//# sourceMappingURL=pluginRepack.js.map
