@@ -95,14 +95,26 @@ ${output
             break;
         }
         case 'upload': {
+            console.log('TEST UPLOAD STARTS');
             const localArtifactPath = getLocalArtifactPath(artifactName);
             const binaryPath = args.binaryPath ?? getLocalBinaryPath(localArtifactPath);
             if (!binaryPath) {
                 throw new RockError(`No binary found for "${artifactName}".`);
             }
+            console.log('TEST UPLOAD BINARY PATH', binaryPath);
             const buffer = await getBinaryBuffer(binaryPath, artifactName, localArtifactPath, args);
-            const isIosPlatform = args.platform === 'ios';
-            const isAndroidPlatform = args.platform === 'android';
+            const isIosPlatformOld = args.platform === 'ios';
+            const isIosPlatform = args.binaryPath?.endsWith('.ipa');
+            const isAndroidPlatformOld = args.platform === 'android';
+            const isAndroidPlatform = args.binaryPath?.endsWith('.apk');
+            console.log('TEST PLATFORM', JSON.stringify({
+                isIosPlatformOld,
+                isIosPlatform,
+                isAndroidPlatformOld,
+                isAndroidPlatform,
+                argPlatform: args.platform,
+                argBinaryPath: args.binaryPath,
+            }, null, 2));
             try {
                 let uploadedArtifact;
                 const appFileName = path.basename(binaryPath);
@@ -119,6 +131,7 @@ ${output
                     uploadContent.messagePrefix = 'APK, index.html';
                     uploadContent.artifactName = `ad-hoc/${artifactName}/${appName}.apk`;
                 }
+                console.log('TEST uploadContent', JSON.stringify(uploadContent, null, 2));
                 const { name, url, getResponse } = await remoteBuildCache.upload({
                     artifactName,
                     uploadArtifactName: uploadContent.artifactName,
@@ -132,6 +145,7 @@ ${output
                 uploadedArtifact = { name, url };
                 // Upload index.html and manifest.plist for iOS ad-hoc distribution
                 if (args.adHoc && isIosPlatform) {
+                    console.log('TEST IOS ADHOC UPLOAD STARTS');
                     const { version, bundleIdentifier } = await getInfoPlistFromIpa(binaryPath);
                     const { url: urlIndexHtml, getResponse: getResponseIndexHtml } = await remoteBuildCache.upload({
                         artifactName,
@@ -155,6 +169,7 @@ ${output
                 }
                 // Upload index.html for Android ad-hoc distribution
                 if (args.adHoc && isAndroidPlatform) {
+                    console.log('TEST ANDROID ADHOC UPLOAD STARTS');
                     const { version, packageName } = await getManifestFromApk(binaryPath);
                     const { url: urlIndexHtml, getResponse: getResponseIndexHtml } = await remoteBuildCache.upload({
                         artifactName,
@@ -249,8 +264,10 @@ async function getManifestFromApk(binaryPath) {
 async function getBinaryBuffer(binaryPath, artifactName, localArtifactPath, args) {
     // For ad-hoc, we don't need to zip the binary, we just upload the IPA
     if (args.adHoc) {
+        console.log('TEST AD-HOC UPLOAD BINARY PATH', binaryPath);
         return fs.readFileSync(binaryPath);
     }
+    console.log('TEST NOT AD-HOC UPLOAD BINARY PATH', binaryPath);
     const zip = new AdmZip();
     const isAppDirectory = binaryPath.endsWith('.app') && fs.statSync(binaryPath).isDirectory();
     const absoluteTarballPath = args.binaryPath ?? path.join(localArtifactPath, 'app.tar.gz');
