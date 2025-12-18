@@ -1,0 +1,56 @@
+import { cacheManager, colorLink, logger, promptPassword, RockError, spawn, } from '@rock-js/tools';
+import * as r from 'ts-regex-builder';
+import { getGitRemote } from './getGitRemote.js';
+const GITHUB_REPO_REGEX = r.buildRegExp([
+    r.startOfString,
+    r.choiceOf('git@', 'https://'),
+    r.oneOrMore(/[^:/]/),
+    r.anyOf(':/'),
+    r.capture(r.oneOrMore(/[^/]/)), // organization
+    '/',
+    r.capture(r.oneOrMore(r.any, { greedy: false })), // repository
+    r.optional('.git'),
+    r.endOfString,
+]);
+export function getGitHubToken() {
+    return cacheManager.get('githubToken');
+}
+export async function promptForGitHubToken() {
+    const githubToken = (await promptPassword({
+        message: 'Paste your GitHub Personal Access Token',
+        validate: (value) => value.length === 0 ? 'Value is required.' : undefined,
+    }));
+    cacheManager.set('githubToken', githubToken);
+    return githubToken;
+}
+export async function detectGitHubRepoDetails() {
+    const gitRemote = await getGitRemote();
+    if (!gitRemote) {
+        throw new RockError(`No git remote found for GitHub repository.`);
+    }
+    try {
+        const { output: url } = await spawn('git', ['config', '--get', `remote.${gitRemote}.url`], { stdio: 'pipe' });
+        const match = url.match(GITHUB_REPO_REGEX);
+        if (!match) {
+            throw new RockError(`The remote URL "${url}" doesn't look like a GitHub repo.`);
+        }
+        let token = getGitHubToken();
+        if (!token) {
+            logger.warn(`No GitHub Personal Access Token found necessary to download cached builds.
+Please generate one at: ${colorLink('https://github.com/settings/tokens')}
+Include "repo", "workflow", and "read:org" permissions.`);
+            token = await promptForGitHubToken();
+        }
+        return {
+            owner: match[1],
+            repository: match[2],
+            token,
+        };
+    }
+    catch (error) {
+        throw new RockError('Unable to detect GitHub repository details.', {
+            cause: error,
+        });
+    }
+}
+//# sourceMappingURL=config.js.map
