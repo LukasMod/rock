@@ -4,7 +4,7 @@ import { colorLink, formatArtifactName, getBinaryPath, isInteractive, logger, pr
 import { buildApp } from '../../utils/buildApp.js';
 import { getBuildPaths } from '../../utils/getBuildPaths.js';
 import { exportArchive } from './exportArchive.js';
-export const createBuild = async ({ platformName, projectConfig, args, projectRoot, reactNativePath, fingerprintOptions, brownfield, remoteCacheProvider, }) => {
+export const createBuild = async ({ platformName, projectConfig, args, projectRoot, reactNativePath, fingerprintOptions, brownfield, remoteCacheProvider, usePrebuiltRNCore, }) => {
     await validateArgs(args);
     let xcodeProject;
     let sourceDir;
@@ -50,6 +50,7 @@ export const createBuild = async ({ platformName, projectConfig, args, projectRo
             artifactName,
             deviceOrSimulator,
             fingerprintOptions,
+            usePrebuiltRNCore,
         });
         logger.log(`Build available at: ${colorLink(relativeToCwd(appPath))}`);
         xcodeProject = buildAppResult.xcodeProject;

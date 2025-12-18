@@ -4,7 +4,7 @@ export { getBuildOptions } from './commands/build/buildOptions.js';
 export { getRunOptions } from './commands/run/runOptions.js';
 export { modifyIpa } from './commands/sign/modifyIpa.js';
 export { modifyApp } from './commands/sign/modifyApp.js';
-export { genericDestinations } from './utils/destionation.js';
+export { genericDestinations } from './utils/destination.js';
 export { getBuildPaths } from './utils/getBuildPaths.js';
 export { getInfo } from './utils/getInfo.js';
 export { getScheme } from './utils/getScheme.js';

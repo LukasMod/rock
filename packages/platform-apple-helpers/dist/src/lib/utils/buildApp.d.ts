@@ -3,7 +3,7 @@ import { type FingerprintSources } from '@rock-js/tools';
 import type { BuildFlags } from '../commands/build/buildOptions.js';
 import type { RunFlags } from '../commands/run/runOptions.js';
 import type { ApplePlatform, ProjectConfig } from '../types/index.js';
-export declare function buildApp({ args, projectConfig, pluginConfig, platformName, udid, projectRoot, deviceName, reactNativePath, binaryPath, brownfield, artifactName, fingerprintOptions, deviceOrSimulator, }: {
+export declare function buildApp({ args, projectConfig, pluginConfig, platformName, udid, projectRoot, deviceName, reactNativePath, binaryPath, brownfield, artifactName, fingerprintOptions, deviceOrSimulator, usePrebuiltRNCore, }: {
     args: RunFlags | BuildFlags;
     projectConfig: ProjectConfig;
     pluginConfig?: IOSProjectConfig;
@@ -17,6 +17,7 @@ export declare function buildApp({ args, projectConfig, pluginConfig, platformNa
     artifactName: string;
     fingerprintOptions: FingerprintSources;
     deviceOrSimulator: string;
+    usePrebuiltRNCore?: number;
 }): Promise<{
     appPath: string;
     bundleIdentifier: any;

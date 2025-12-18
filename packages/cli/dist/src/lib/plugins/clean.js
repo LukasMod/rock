@@ -6,6 +6,7 @@ const CLEANUP_TASK_NAMES = [
     'android',
     'gradle',
     'cocoapods',
+    'ccache',
     'metro',
     'watchman',
     'node_modules',
@@ -62,6 +63,20 @@ function hasMetroProject(projectRoot) {
     return false;
 }
 /**
+ * Checks if ccache is installed on the system.
+ * @returns Promise that resolves to true if ccache is available, false otherwise
+ */
+async function isCCacheInstalled() {
+    try {
+        await spawn('which', ['ccache']);
+        return true;
+    }
+    catch (error) {
+        logger.debug(`Failed to find ccache binary: ${error}`);
+        return false;
+    }
+}
+/**
  * Cleans temporary directories that match a given pattern.
  * @param pattern - The pattern to match temporary directory names
  */
@@ -97,7 +112,7 @@ function cleanDirectories(directories, baseDir) {
  * @param options - Clean options that affect task creation
  * @returns Array of cleanup tasks with their configurations
  */
-function createCleanupTasks(projectRoot, options) {
+async function createCleanupTasks(projectRoot, options) {
     const tasks = [];
     // Android cleanup
     tasks.push({
@@ -158,6 +173,16 @@ function createCleanupTasks(projectRoot, options) {
         action: async () => {
             cleanTempDirectoryPattern('metro-');
             cleanTempDirectoryPattern('haste-map');
+        },
+    });
+    const hasCCache = await isCCacheInstalled();
+    // CCache cleanup (only if ccache is installed)
+    tasks.push({
+        name: 'ccache',
+        description: '[C/C++] CCache compiler cache',
+        enabled: hasCCache,
+        action: async () => {
+            await spawn('ccache', ['--clear']);
         },
     });
     // Watchman cleanup (only for Metro projects)
@@ -243,7 +268,7 @@ function createCleanupTasks(projectRoot, options) {
  * @param options - Clean options that determine which tasks to run
  */
 async function cleanProject(projectRoot, options) {
-    const tasks = createCleanupTasks(projectRoot, options);
+    const tasks = await createCleanupTasks(projectRoot, options);
     let selectedTasks;
     const availableTasks = tasks.filter((task) => task.enabled);
     if (options.include && options.include.length > 0) {

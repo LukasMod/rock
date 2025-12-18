@@ -49,6 +49,14 @@ type ProviderConfig = {
      * External ID when assuming a role (for additional security).
      */
     externalId?: string;
+    /**
+     * If true, the provider will not sign requests and will try to access the S3 bucket without authentication.
+     */
+    publicAccess?: boolean;
+    /**
+     * ACL to use for the S3 server.
+     */
+    acl?: clientS3.ObjectCannedACL;
 };
 export declare class S3BuildCache implements RemoteBuildCache {
     name: string;

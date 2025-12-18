@@ -10,7 +10,7 @@ import { runOnDevice } from './runOnDevice.js';
 import { runOnMac } from './runOnMac.js';
 import { runOnMacCatalyst } from './runOnMacCatalyst.js';
 import { launchSimulator, runOnSimulator } from './runOnSimulator.js';
-export const createRun = async ({ platformName, projectConfig, args, projectRoot, remoteCacheProvider, fingerprintOptions, reactNativePath, reactNativeVersion, platforms, startDevServer, }) => {
+export const createRun = async ({ platformName, projectConfig, args, projectRoot, remoteCacheProvider, fingerprintOptions, reactNativePath, reactNativeVersion, platforms, startDevServer, usePrebuiltRNCore }) => {
     const startDevServerHelper = () => {
         if (args.devServer) {
             logger.info('Starting dev server...');
@@ -67,6 +67,7 @@ export const createRun = async ({ platformName, projectConfig, args, projectRoot
             artifactName,
             deviceOrSimulator,
             fingerprintOptions,
+            usePrebuiltRNCore,
         });
         await runOnMac(appPath);
         startDevServerHelper();
@@ -85,6 +86,7 @@ export const createRun = async ({ platformName, projectConfig, args, projectRoot
             artifactName,
             deviceOrSimulator,
             fingerprintOptions,
+            usePrebuiltRNCore,
         });
         if (scheme) {
             await runOnMacCatalyst(appPath, scheme);
@@ -125,6 +127,7 @@ ${devices
                     artifactName,
                     deviceOrSimulator,
                     fingerprintOptions,
+                    usePrebuiltRNCore,
                 }),
             ]);
             await runOnSimulator(device, appPath, infoPlistPath);
@@ -142,6 +145,7 @@ ${devices
                 artifactName,
                 deviceOrSimulator,
                 fingerprintOptions,
+                usePrebuiltRNCore,
             });
             await runOnDevice(device, appPath, projectConfig.sourceDir, bundleIdentifier);
             startDevServerHelper();
@@ -182,6 +186,7 @@ ${devices
                     artifactName,
                     deviceOrSimulator,
                     fingerprintOptions,
+                    usePrebuiltRNCore,
                 }),
             ]);
             if (bootedDevice.type === 'simulator') {

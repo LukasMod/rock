@@ -45,6 +45,7 @@ export type PluginApi = {
     getBundlerStart: () => ({ args }: {
         args: DevServerArgs;
     }) => void;
+    getUsePrebuiltRNCore: () => number | undefined;
 };
 type PluginType = (args: PluginApi) => PluginOutput;
 type BundlerPluginType = (args: PluginApi) => BundlerPluginOutput;
@@ -85,6 +86,7 @@ export type ConfigType = {
         ignorePaths?: string[];
         env?: string[];
     };
+    usePrebuiltRNCore?: number;
 };
 export type ConfigOutput = {
     root: string;

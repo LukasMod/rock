@@ -6,7 +6,7 @@ import runCodegen from './codegen.js';
 const podErrorHelpMessage = `Please make sure your environment is correctly set up. 
 Learn more at: ${color.dim('https://cocoapods.org/')}
 To skip automatic CocoaPods installation run with "--no-install-pods" flag after installing CocoaPods manually.`;
-export async function installPodsIfNeeded(projectRoot, platformName, sourceDir, newArch, reactNativePath, brownfield) {
+export async function installPodsIfNeeded(projectRoot, platformName, sourceDir, newArch, reactNativePath, brownfield, usePrebuiltRNCore) {
     const podsPath = path.join(sourceDir, 'Pods');
     const podfilePath = path.join(sourceDir, 'Podfile');
     // There's a possibility to define a custom dependencies in `react-native.config.js`, that contain native code for a platform and that should also trigger install CocoaPods
@@ -25,6 +25,7 @@ export async function installPodsIfNeeded(projectRoot, platformName, sourceDir, 
             podfilePath,
             newArch,
             brownfield,
+            usePrebuiltRNCore,
         });
         cacheManager.set(cacheKey, calculateCurrentHash({ podfilePath, podsPath, nativeDependencies }));
         return true;
@@ -81,12 +82,12 @@ async function runPodInstall(options) {
             env: {
                 RCT_NEW_ARCH_ENABLED: options.newArch ? '1' : '0',
                 RCT_IGNORE_PODS_DEPRECATION: '1',
-                RCT_USE_RN_DEP: process.env['RCT_USE_RN_DEP'] != undefined
-                    ? String(process.env['RCT_USE_RN_DEP'])
-                    : usePrebuiltReactNative ? '1' : '0',
-                RCT_USE_PREBUILT_RNCORE: process.env['RCT_USE_PREBUILT_RNCORE'] != undefined
-                    ? String(process.env['RCT_USE_PREBUILT_RNCORE'])
-                    : usePrebuiltReactNative ? '1' : '0',
+                RCT_USE_RN_DEP: String(process.env['RCT_USE_RN_DEP'] ??
+                    options.usePrebuiltRNCore ??
+                    (usePrebuiltReactNative ? 1 : 0)),
+                RCT_USE_PREBUILT_RNCORE: String(process.env['RCT_USE_PREBUILT_RNCORE'] ??
+                    options.usePrebuiltRNCore ??
+                    (usePrebuiltReactNative ? 1 : 0)),
                 ...(options.brownfield && { USE_FRAMEWORKS: 'static' }),
                 ...(process.env['USE_THIRD_PARTY_JSC'] && {
                     USE_THIRD_PARTY_JSC: process.env['USE_THIRD_PARTY_JSC'],
@@ -123,6 +124,7 @@ async function runPodInstall(options) {
                 useBundler: options.useBundler,
                 brownfield: options.brownfield,
                 projectRoot: options.projectRoot,
+                usePrebuiltRNCore: options.usePrebuiltRNCore,
             });
         }
         else {
@@ -165,6 +167,7 @@ async function installPods(options) {
         useBundler,
         brownfield: options.brownfield,
         projectRoot: options.projectRoot,
+        usePrebuiltRNCore: options.usePrebuiltRNCore,
     });
 }
 /*

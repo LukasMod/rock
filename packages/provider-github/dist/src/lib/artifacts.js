@@ -43,7 +43,7 @@ export async function fetchGitHubArtifactsByName(name, repoDetails, limit) {
             throw new RockError(`Failed to fetch GitHub artifacts due to invalid or expired GitHub Personal Access Token provided.
 Update the token under "${color.bold('remoteCacheProvider')}" key in ${colorLink('rock.config.mjs')} config file.
 
-📘 Read more about generating a new token: ${colorLink('https://rockjs.dev/docs/github-actions/configuration#generate-github-personal-access-token-for-downloading-cached-builds')}`);
+📘 Read more about generating a new token: ${colorLink('https://rockjs.dev/docs/remote-cache/github-actions-setup#setup-github-personal-access-token')}`);
         }
         if (error.message.includes('404 Not Found')) {
             throw new RockError(`Failed to fetch GitHub artifacts due to "404 Not Found" error. This can happen for the following reasons:
@@ -53,7 +53,7 @@ Update the token under "${color.bold('remoteCacheProvider')}" key in ${colorLink
 
 Make sure the repository information and token under "${color.bold('remoteCacheProvider')}" key in ${colorLink('rock.config.mjs')} config file is valid.
 
-📘 Read more about generating a new token: ${colorLink('https://rockjs.dev/docs/github-actions/configuration#generate-github-personal-access-token-for-downloading-cached-builds')}`);
+📘 Read more about generating a new token: ${colorLink('https://rockjs.dev/docs/remote-cache/github-actions-setup#setup-github-personal-access-token')}`);
         }
         throw new RockError(`Failed to fetch GitHub artifacts`, { cause: error });
     }

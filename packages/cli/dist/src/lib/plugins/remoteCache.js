@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { color, colorLink, formatArtifactName, getInfoPlist, getLocalArtifactPath, getLocalBinaryPath, handleDownloadResponse, handleUploadResponse, logger, relativeToCwd, RockError, spinner, } from '@rock-js/tools';
+import { color, colorLink, formatArtifactName, getInfoPlist, getLocalArtifactPath, getLocalBinaryPath, handleDownloadResponse, handleUploadResponse, logger, relativeToCwd, RockError, spawn, spinner, } from '@rock-js/tools';
 import AdmZip from 'adm-zip';
 import * as tar from 'tar';
 import { templateIndexHtmlAndroid, templateIndexHtmlIOS, templateManifestPlist, } from '../adHocTemplates.js';
@@ -225,18 +225,34 @@ async function getInfoPlistFromIpa(binaryPath) {
         bundleIdentifier: infoPlistJson?.['CFBundleIdentifier'] || 'unknown',
     };
 }
+function findAapt() {
+    const sdkRoot = process.env['ANDROID_HOME'] || process.env['ANDROID_SDK_ROOT'];
+    if (!sdkRoot) {
+        throw new RockError('ANDROID_HOME or ANDROID_SDK_ROOT environment variable is not set. Please follow instructions at: https://reactnative.dev/docs/set-up-your-environment?platform=android');
+    }
+    const buildToolsPath = path.join(sdkRoot, 'build-tools');
+    const versions = fs.readdirSync(buildToolsPath);
+    for (const version of versions) {
+        const aaptPath = path.join(buildToolsPath, version, 'aapt');
+        if (fs.existsSync(aaptPath)) {
+            logger.debug(`Found aapt at: ${aaptPath}`);
+            return aaptPath;
+        }
+    }
+    throw new RockError(`"aapt" not found in Android Build-Tools directory: ${colorLink(buildToolsPath)}
+Please follow instructions at: https://reactnative.dev/docs/set-up-your-environment?platform=android`);
+}
 async function getManifestFromApk(binaryPath) {
     const apkFileName = path.basename(binaryPath, '.apk');
     try {
-        const nodeApk = await import('node-apk');
-        const { Apk } = nodeApk.default || nodeApk;
-        const apk = new Apk(binaryPath);
-        const manifest = await apk.getManifestInfo();
-        apk.close();
-        return {
-            packageName: manifest.package || apkFileName,
-            version: manifest.versionName || '1.0',
-        };
+        const aaptPath = findAapt();
+        const { stdout: output } = await spawn(aaptPath, ['dump', 'badging', binaryPath], { stdio: 'pipe' });
+        const packageMatch = output?.match(/package: name='([^']+)'/);
+        const versionMatch = output?.match(/versionName='([^']+)'/);
+        const packageName = packageMatch?.[1] || apkFileName;
+        const version = versionMatch?.[1] || '1.0';
+        logger.debug(`Extracted APK manifest - package: ${packageName}, version: ${version}`);
+        return { packageName, version };
     }
     catch (error) {
         logger.debug('Failed to parse APK manifest, using fallback', error);

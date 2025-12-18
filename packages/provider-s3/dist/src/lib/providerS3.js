@@ -49,6 +49,16 @@ export class S3BuildCache {
             // Use shared config file (e.g. ~/.aws/credentials) with a profile
             s3Config.credentials = fromIni({ profile: config.profile });
         }
+        else if (config.publicAccess) {
+            // Workaround to access the S3 bucket without authentication (https://carriagereturn.nl/aws/iam/s3/anonymous/2024/07/31/anonymous-access.html)
+            s3Config.signer = {
+                sign: async (request) => request,
+            };
+            s3Config.credentials = {
+                accessKeyId: '',
+                secretAccessKey: '',
+            };
+        }
         this.s3 = new clientS3.S3Client(s3Config);
         const awsBucket = config.bucket ?? '';
         const bucketTokens = awsBucket.split('/');
@@ -65,6 +75,7 @@ export class S3BuildCache {
                 Key: key,
                 Body: buffer,
                 ContentType: contentType || 'application/octet-stream',
+                ...(this.config.acl && { ACL: this.config.acl }),
                 Metadata: {
                     createdAt: new Date().toISOString(),
                 },
@@ -98,15 +109,24 @@ export class S3BuildCache {
         return results;
     }
     async download({ artifactName, }) {
-        const res = await this.s3.send(new clientS3.GetObjectCommand({
-            Bucket: this.bucket,
-            Key: `${this.directory}/${artifactName}.zip`,
-        }));
-        return new Response(toWebStream(res.Body), {
-            headers: {
-                'content-length': String(res.ContentLength),
-            },
-        });
+        try {
+            const res = await this.s3.send(new clientS3.GetObjectCommand({
+                Bucket: this.bucket,
+                Key: `${this.directory}/${artifactName}.zip`,
+            }));
+            return new Response(toWebStream(res.Body), {
+                headers: {
+                    'content-length': String(res.ContentLength),
+                },
+            });
+        }
+        catch (error) {
+            if (this.config.publicAccess) {
+                const err = error;
+                err.message = `${err.message}\n\nNote: Public access mode is enabled. Build not found or not accessible to the public`;
+            }
+            throw error;
+        }
     }
     async delete({ artifactName, skipLatest, }) {
         if (skipLatest) {

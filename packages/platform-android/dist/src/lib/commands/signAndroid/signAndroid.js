@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { colorLink, getDotRockPath, intro, outro, relativeToCwd, RockError, spawn, spinner, } from '@rock-js/tools';
-import AdmZip from 'adm-zip';
 import { findAndroidBuildTool, getAndroidBuildToolsPath } from '../../paths.js';
 import { buildJsBundle } from './bundle.js';
 export async function signAndroid(options) {
@@ -30,13 +29,11 @@ export async function signAndroid(options) {
     const tempArchivePath = path.join(tempPath, `output-app.${extension}`);
     loader.start(`Initializing output ${extension.toUpperCase()}...`);
     try {
-        const zip = new AdmZip(options.binaryPath);
-        // Remove old signature files
-        zip.deleteFile('META-INF/*');
-        zip.writeZip(tempArchivePath);
+        fs.mkdirSync(tempPath, { recursive: true });
+        fs.copyFileSync(options.binaryPath, tempArchivePath);
     }
     catch (error) {
-        throw new RockError(`Failed to initialize output file: ${options.outputPath}`, { cause: error.stderr });
+        throw new RockError(`Failed to initialize output file: ${options.outputPath}`, { cause: error });
     }
     loader.stop(`Initialized output ${extension.toUpperCase()}`);
     // 3. Replace JS bundle if provided
@@ -78,15 +75,30 @@ function validateOptions(options) {
     }
 }
 async function replaceJsBundle({ archivePath, jsBundlePath, }) {
+    const assetsPath = isAab(archivePath) ? 'base/assets' : 'assets';
+    const bundleEntryPath = path.posix.join(assetsPath, 'index.android.bundle');
+    const stagingRoot = path.join(getDotRockPath(), 'android/sign/bundle-staging');
+    const stagedBundleDir = path.join(stagingRoot, assetsPath);
+    if (fs.existsSync(stagingRoot)) {
+        fs.rmSync(stagingRoot, { recursive: true });
+    }
+    fs.mkdirSync(stagedBundleDir, { recursive: true });
+    fs.copyFileSync(jsBundlePath, path.join(stagedBundleDir, 'index.android.bundle'));
     try {
-        const zip = new AdmZip(archivePath);
-        const assetsPath = isAab(archivePath) ? 'base/assets' : 'assets';
-        zip.deleteFile(path.join(assetsPath, 'index.android.bundle'));
-        zip.addLocalFile(jsBundlePath, assetsPath, 'index.android.bundle');
-        zip.writeZip(archivePath);
+        // Remove old bundle
+        await spawn('zip', ['-d', archivePath, bundleEntryPath]);
+        // Uses store-only compression (-0) to prevent bundle corruption.
+        await spawn('zip', ['-0', '-r', archivePath, assetsPath], {
+            cwd: stagingRoot,
+        });
     }
     catch (error) {
         throw new RockError(`Failed to replace JS bundle in destination file: ${archivePath}`, { cause: error });
+    }
+    finally {
+        if (fs.existsSync(stagingRoot)) {
+            fs.rmSync(stagingRoot, { recursive: true });
+        }
     }
 }
 function isSdkGTE35(versionString) {

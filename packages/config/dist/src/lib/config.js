@@ -72,6 +72,7 @@ Read more: ${colorLink('https://rockjs.dev/docs/configuration#github-actions-pro
                 platforms: api.getPlatforms(),
             });
         },
+        getUsePrebuiltRNCore: () => validatedConfig.usePrebuiltRNCore,
     };
     const platforms = {};
     if (validatedConfig.platforms) {

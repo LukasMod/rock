@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { logger, spawn } from '@rock-js/tools';
 import { getAdbPath } from './adb.js';
 export async function findOutputFile(androidProject, tasks, device) {
@@ -24,7 +24,7 @@ export async function findOutputFile(androidProject, tasks, device) {
     const outputFile = await getInstallOutputFileName(appName, variantAppName, buildDirectory, apkOrBundle === 'apk' ? 'apk' : 'aab', device);
     return outputFile ? `${buildDirectory}/${outputFile}` : undefined;
 }
-async function getInstallOutputFileName(appName, variant, buildDirectory, apkOrAab, device) {
+export async function getInstallOutputFileName(appName, variant, buildDirectory, apkOrAab, device) {
     const availableCPUs = await getAvailableCPUs(device);
     // check if there is an apk file like app-armeabi-v7a-debug.apk
     for (const availableCPU of availableCPUs.concat('universal')) {
@@ -37,6 +37,20 @@ async function getInstallOutputFileName(appName, variant, buildDirectory, apkOrA
     const outputFile = `${appName}-${variant}.${apkOrAab}`;
     if (existsSync(`${buildDirectory}/${outputFile}`)) {
         return outputFile;
+    }
+    // Fallback for hybrid/brownfield apps where appName may be empty.
+    // appName comes from CLI's getAppName() which returns '' if neither
+    // userConfigAppName nor 'app' subfolder exists in sourceDir.
+    // In this case, Gradle uses the root project name as prefix
+    // (e.g., HybridApp-debug.apk instead of app-debug.apk).
+    // See: https://github.com/react-native-community/cli/blob/main/packages/cli-config-android/src/config/index.ts
+    if (existsSync(buildDirectory)) {
+        const pattern = `-${variant}.${apkOrAab}`;
+        const files = readdirSync(buildDirectory);
+        const matchingFile = files?.find((file) => file.endsWith(pattern));
+        if (matchingFile) {
+            return matchingFile;
+        }
     }
     logger.debug('Could not find the output file:', {
         buildDirectory,

@@ -2,13 +2,13 @@ import path from 'node:path';
 import { formatArtifactName, getInfoPlist, RockError, saveLocalBuildCache, } from '@rock-js/tools';
 import { buildProject } from '../commands/build/buildProject.js';
 import { getBuildSettings } from '../commands/run/getBuildSettings.js';
-import { getGenericDestination } from './destionation.js';
+import { getGenericDestination } from './destination.js';
 import { getConfiguration } from './getConfiguration.js';
 import { getInfo } from './getInfo.js';
 import { getScheme } from './getScheme.js';
 import { getValidProjectConfig } from './getValidProjectConfig.js';
 import { installPodsIfNeeded } from './pods.js';
-export async function buildApp({ args, projectConfig, pluginConfig, platformName, udid, projectRoot, deviceName, reactNativePath, binaryPath, brownfield, artifactName, fingerprintOptions, deviceOrSimulator, }) {
+export async function buildApp({ args, projectConfig, pluginConfig, platformName, udid, projectRoot, deviceName, reactNativePath, binaryPath, brownfield, artifactName, fingerprintOptions, deviceOrSimulator, usePrebuiltRNCore, }) {
     if (binaryPath) {
         // @todo Info.plist is hardcoded when reading from binaryPath
         const infoPlistPath = path.join(binaryPath, 'Info.plist');
@@ -26,7 +26,7 @@ export async function buildApp({ args, projectConfig, pluginConfig, platformName
     let artifactNameToSave = artifactName;
     let { xcodeProject, sourceDir } = projectConfig;
     if (args.installPods) {
-        const didInstallPods = await installPodsIfNeeded(projectRoot, platformName, sourceDir, args.newArch, reactNativePath, brownfield);
+        const didInstallPods = await installPodsIfNeeded(projectRoot, platformName, sourceDir, args.newArch, reactNativePath, brownfield, usePrebuiltRNCore);
         // When the project is not a workspace, we need to get the project config again,
         // because running pods install might have generated .xcworkspace project.
         // This should be only case in new project.
@@ -35,9 +35,10 @@ export async function buildApp({ args, projectConfig, pluginConfig, platformName
             xcodeProject = newProjectConfig.xcodeProject;
             sourceDir = newProjectConfig.sourceDir;
         }
-        if (didInstallPods) {
+        if (didInstallPods && args.local) {
             // After installing pods the fingerprint likely changes.
             // We update the artifact name to reflect the new fingerprint and store proper entry in the local cache.
+            // Only do this for local builds. Remote builds need the fingerprint determined upfront to properly find the cached build before pods install.
             artifactNameToSave = await formatArtifactName({
                 platform: 'ios',
                 traits: [deviceOrSimulator, args.configuration ?? 'Debug'],
