@@ -1,0 +1,52 @@
+import { promptSelect, RockError, spawn } from '@rock-js/tools';
+/**
+ * Input is in the form of:
+ * ```
+ *   1) 1234567890ABCDEF1234567890ABCDEF12345678 "Apple Development: John Doe (TEAMID1234)"
+ *   2) ABCDEF1234567890ABCDEF1234567890ABCDEF12 "Apple Distribution: Jane Smith (TEAMID5678)"
+ * ```
+ * @param output
+ * @returns
+ */
+export function parseSigningIdentities(output) {
+    const result = [];
+    const lines = output.split('\n');
+    const regex = /^\s*(\d+)\)\s+([A-F0-9]+)\s+"(.+)"$/;
+    for (const line of lines) {
+        const match = line.match(regex);
+        if (match) {
+            const hash = match[2];
+            const name = match[3];
+            result.push({ hash, name });
+        }
+    }
+    return result;
+}
+export async function getValidSigningIdentities() {
+    try {
+        const { output } = await spawn('security', ['find-identity', '-v', '-p', 'codesigning'], { stdio: 'pipe' });
+        return parseSigningIdentities(output);
+    }
+    catch (error) {
+        throw new RockError('Failed to load signing identities', {
+            cause: error,
+        });
+    }
+}
+export async function promptSigningIdentity(currentIdentity) {
+    const identities = await getValidSigningIdentities();
+    const current = currentIdentity
+        ? identities.find((i) => i.name === currentIdentity)
+        : undefined;
+    const other = identities.filter((i) => i.name !== currentIdentity);
+    const list = current ? [current, ...other] : other;
+    return await promptSelect({
+        message: 'Select a signing identity:',
+        options: list.map((identity) => ({
+            label: identity.name,
+            value: identity.name,
+            hint: identity.name === currentIdentity ? 'Current' : undefined,
+        })),
+    });
+}
+//# sourceMappingURL=signingIdentities.js.map
