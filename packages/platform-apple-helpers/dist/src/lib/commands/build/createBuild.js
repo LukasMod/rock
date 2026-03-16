@@ -1,0 +1,107 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { colorLink, formatArtifactName, getBinaryPath, isInteractive, logger, promptSelect, relativeToCwd, RockError, saveLocalBuildCache, } from '@rock-js/tools';
+import { buildApp } from '../../utils/buildApp.js';
+import { getBuildPaths } from '../../utils/getBuildPaths.js';
+import { exportArchive } from './exportArchive.js';
+export const createBuild = async ({ platformName, projectConfig, args, projectRoot, reactNativePath, fingerprintOptions, brownfield, remoteCacheProvider, usePrebuiltRNCore, }) => {
+    await validateArgs(args);
+    let xcodeProject;
+    let sourceDir;
+    let scheme = args.scheme;
+    const deviceOrSimulator = args.destination
+        ? // there can be multiple destinations, so we'll pick the first one
+            args.destination[0].match(/simulator/i)
+                ? 'simulator'
+                : 'device'
+        : 'simulator';
+    const artifactName = await formatArtifactName({
+        platform: 'ios',
+        traits: [deviceOrSimulator, args.configuration ?? 'Debug'],
+        root: projectRoot,
+        fingerprintOptions,
+    });
+    const binaryPath = await getBinaryPath({
+        platformName,
+        artifactName,
+        localFlag: args.local,
+        remoteCacheProvider,
+        fingerprintOptions,
+        sourceDir: projectConfig.sourceDir,
+    });
+    if (binaryPath) {
+        logger.log(`Build available at: ${colorLink(relativeToCwd(binaryPath))}`);
+        if (args.archive) {
+            const { exportDir } = getBuildPaths(platformName);
+            if (fs.existsSync(exportDir) && fs.statSync(exportDir).isDirectory()) {
+                logger.log(`Archives available at: ${colorLink(relativeToCwd(exportDir))}`);
+            }
+        }
+        return { scheme };
+    }
+    try {
+        const { appPath, ...buildAppResult } = await buildApp({
+            projectRoot,
+            projectConfig,
+            platformName,
+            args,
+            reactNativePath,
+            brownfield,
+            artifactName,
+            deviceOrSimulator,
+            fingerprintOptions,
+            usePrebuiltRNCore,
+        });
+        logger.log(`Build available at: ${colorLink(relativeToCwd(appPath))}`);
+        xcodeProject = buildAppResult.xcodeProject;
+        sourceDir = buildAppResult.sourceDir;
+        scheme = buildAppResult.scheme;
+    }
+    catch (error) {
+        const message = `Failed to create ${args.archive ? 'archive' : 'build'}`;
+        throw new RockError(message, { cause: error });
+    }
+    if (args.archive) {
+        const { archiveDir } = getBuildPaths(platformName);
+        const archivePath = path.join(archiveDir, `${xcodeProject.name.replace('.xcworkspace', '')}.xcarchive`);
+        const { ipaPath } = await exportArchive({
+            sourceDir,
+            archivePath,
+            platformName,
+            exportExtraParams: args.exportExtraParams ?? [],
+            exportOptionsPlist: args.exportOptionsPlist,
+        });
+        // Save the IPA to the local build cache so it's available for remote-cache command
+        saveLocalBuildCache(artifactName, ipaPath);
+    }
+    return { scheme };
+};
+async function validateArgs(args) {
+    if (!args.destination) {
+        if (isInteractive()) {
+            const destination = await promptSelect({
+                message: 'Select destination for a generic build',
+                options: [
+                    {
+                        label: 'Simulator',
+                        value: 'simulator',
+                    },
+                    {
+                        label: 'Device',
+                        value: 'device',
+                    },
+                ],
+            });
+            args.destination = [destination];
+            logger.info(`You can set configuration manually next time using "--destination ${destination}" flag.`);
+        }
+        else {
+            logger.error(`The "--destination" flag is required in non-interactive environments. Available flag values:
+- "simulator" – suitable for unsigned simulator builds for developers
+- "device" – suitable for signed device builds for testers
+- or values supported by "xcodebuild -destination" flag, e.g. "generic/platform=iOS"`);
+            process.exit(1);
+        }
+    }
+}
+//# sourceMappingURL=createBuild.js.map

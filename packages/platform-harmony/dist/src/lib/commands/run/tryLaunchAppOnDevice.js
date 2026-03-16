@@ -1,0 +1,43 @@
+import { logger, RockError, spawn } from '@rock-js/tools';
+import { getHdcPath } from './hdc.js';
+import { tryRunHdcReverse } from './tryRunHdcReverse.js';
+export async function tryLaunchAppOnDevice(device, bundleName, args) {
+    let deviceId;
+    if (!device.deviceId) {
+        logger.debug(`No "deviceId" for ${device}, skipping launching the app`);
+        return {};
+    }
+    else {
+        deviceId = device.deviceId;
+    }
+    await tryRunHdcReverse(args.port, deviceId);
+    const hdcPath = getHdcPath();
+    try {
+        await spawn(hdcPath, [
+            '-t',
+            device.deviceId,
+            'shell',
+            'aa',
+            'force-stop',
+            bundleName,
+        ]);
+        await spawn(hdcPath, [
+            '-t',
+            device.deviceId,
+            'shell',
+            'aa',
+            'start',
+            '-a',
+            args.ability,
+            '-b',
+            bundleName,
+        ]);
+    }
+    catch (error) {
+        throw new RockError(`Failed to launch the app on ${device.readableName}`, {
+            cause: error.stderr,
+        });
+    }
+    return { applicationIdWithSuffix: bundleName };
+}
+//# sourceMappingURL=tryLaunchAppOnDevice.js.map

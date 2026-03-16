@@ -1,0 +1,36 @@
+import * as fs from 'node:fs';
+import * as nodePath from 'node:path';
+import { RockError } from './error.js';
+export function relativeToCwd(path) {
+    return nodePath.relative(process.cwd(), path);
+}
+export function resolveAbsolutePath(path) {
+    return nodePath.isAbsolute(path) ? path : nodePath.join(process.cwd(), path);
+}
+export function resolveFilenameUp(path, filename) {
+    const filePath = nodePath.join(path, filename);
+    if (fs.existsSync(filePath)) {
+        return filePath;
+    }
+    const parentDir = nodePath.dirname(path);
+    if (parentDir === path) {
+        throw new RockError(`${filename} not found in any parent directory of ${path}`);
+    }
+    return resolveFilenameUp(parentDir, filename);
+}
+export function findDirectoriesWithPattern(path, pattern) {
+    const files = fs.readdirSync(path);
+    const result = [];
+    for (const file of files) {
+        const filePath = nodePath.join(path, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isDirectory()) {
+            if (file.match(pattern)) {
+                result.push(filePath);
+            }
+            result.push(...findDirectoriesWithPattern(filePath, pattern));
+        }
+    }
+    return result;
+}
+//# sourceMappingURL=path.js.map

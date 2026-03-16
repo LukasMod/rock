@@ -8,6 +8,24 @@ importers:
 
   .:
     dependencies:
+      '@react-native-community/cli-config':
+        specifier: ^20.0.0
+        version: 20.0.1(typescript@5.9.2)
+      '@rock-js/config':
+        specifier: 0.11.13
+        version: link:packages/config
+      '@rock-js/tools':
+        specifier: 0.11.13
+        version: link:packages/tools
+      adm-zip:
+        specifier: ^0.5.16
+        version: 0.5.16
+      commander:
+        specifier: ^12.1.0
+        version: 12.1.0
+      tar:
+        specifier: ^7.5.1
+        version: 7.5.1
       tslib:
         specifier: ^2.8.1
         version: 2.8.1
